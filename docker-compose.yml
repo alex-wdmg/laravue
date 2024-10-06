@@ -1,0 +1,85 @@
+version: '3.7'
+
+volumes:
+    logs:
+        driver: local
+
+services:
+    laravue_www:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            args:
+                - NODE_ENV=local
+        container_name: www_laravue
+        working_dir: /var/www/html
+        command: bash -c "php -S 0.0.0.0:80 -t public"
+        ports:
+            - "8080:80"
+            - "4430:443"
+        volumes:
+            - ./:/var/www/html/
+            - ./storage/logs/www:/var/log
+        links:
+            - laravue_db
+        networks:
+            - default
+        environment:
+            - docker=true
+            - APP_ENV=development
+            - SERVER_ADDR=127.0.0.1
+            - ACCEPT_EULA=Y
+            - DB_CONNECTION=mysql
+            - DB_HOST=db_laravue
+            - DB_PORT=3306
+            - DB_DATABASE=laravue
+            - DB_USERNAME=root
+            - DB_PASSWORD=root
+            - ENABLE_DOC_US=true
+            - TEST_DB_CONNECTION=mysql
+            - TEST_DB_HOST=db_laravue
+            - TEST_DB_PORT=3306
+            - TEST_DB_DATABASE=laravue_test
+            - TEST_DB_USERNAME=root
+            - TEST_DB_PASSWORD=root
+    laravue_db:
+        image: mysql:8.1
+        container_name: db_laravue
+        restart: on-failure
+        ports:
+            - "3360:3306"
+        networks:
+            - default
+        command: --sql-mode="NO_ENGINE_SUBSTITUTION" --init-connect='SET NAMES UTF8;' --character-set-server=utf8 --default-authentication-plugin=mysql_native_password
+        hostname:
+            laravue_db
+        volumes:
+            - ./storage/logs/mysql:/var/log/mysql
+            - ./dump:/docker-entrypoint-initdb.d
+        environment:
+            - MYSQL_ROOT_PASSWORD=root
+            - MYSQL_DATABASE=laravue
+            - MYSQL_PASSWORD=root
+    laravue_pma:
+        image: phpmyadmin/phpmyadmin
+        container_name: pma_laravue
+        restart: on-failure
+        ports:
+            - "8081:80"
+        depends_on:
+            - laravue_db
+        links:
+            - laravue_db
+        volumes:
+            - /sessions
+        networks:
+            - default
+        environment:
+            PMA_HOST: db_laravue
+            PMA_PORT: 3306
+            UPLOAD_LIMIT: 300M
+            MYSQL_USER: root
+            MYSQL_PASSWORD: root
+            MYSQL_ROOT_PASSWORD: root
+            #PMA_ARBITRARY: 1
+            #PMA_ABSOLUTE_URI: http://localhost:8085/
